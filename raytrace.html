@@ -1,6 +1,9 @@
 <!DOCTYPE HTML>
 <html>
   <head>
+	<!-- Name: Daelyn Doughty -->
+	<!-- Assignment: 4 -->
+	<!-- Due date: 3/27/2024 -->
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
     <script type="text/javascript" charset="utf-8" src="./renderer.js"></script>
     <script type="text/javascript" charset="utf-8" src="lib/controls.js"></script>
@@ -149,13 +152,12 @@
 			hit = closer( hit, 4, dSphere(p, vec3(1.5,0.5,0), 0.5) ); // Daelyn: Third sphere
 			hit = closer( hit, 5, dSphere(p, vec3(-1.5,0.5,0), 0.5) ); // Daelyn: Fourth sphere
 			hit = closer( hit, 6, dSphere(p, vec3(-2.5,0.5,0), 0.5) ); // Daelyn: Fifth sphere
-
-			hit = closer( hit, 7, dCube(p, vec3(2.5,0.5,0), 0.5) ); // Daelyn: Cube -->
+			hit = closer( hit, 7, dCube(p, vec3(2.5,0.5,0), 0.5) ); // Daelyn: Cube
 			// more objects here ...
 
 			return hit;
 		}
-		// Daelyn: Distance function for a cube
+
 
 		// use dScene and finite differences to estimate the normal of the object
 		// at position x
