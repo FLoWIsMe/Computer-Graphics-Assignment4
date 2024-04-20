@@ -73,14 +73,25 @@
 
 		// -------------------------------------------------------------------------
 
-		struct Light
-		{
+		struct Light {
 			vec3 position;
 			vec3 color;
+			float ambientIntensity; // Daelyn: added parameters for phong shading
+			float diffuseIntensity;
+			float specularIntensity;
 		};
+		
 
 		uniform Light uLights[2];
 
+		// Daelyn: defining material properties
+		struct Material {
+			vec3 ambientColor;
+			vec3 diffuseColor;
+			vec3 specularColor;
+			float shininess;
+		};
+		
 		// -------------------------------------------------------------------------
 
 		struct Settings
@@ -231,74 +242,51 @@
 												uCamera.up * pixelCoord.y) );
 		}
 
-		// main raytracing loop, automatically called for each viewport pixel
-		void main(void)
-		{
-			// compute initial (primary) ray origin and direction
-			Ray r = getRayForCurrentPixel();
-
-			vec3 finalColor = vec3(0,0,0);
-
-			// determine the closest object hit along the ray
-			Dist hit = raymarch( r );
-
-			// if an object was hit, add light reflected from it
-			// to overall light along the current ray
-			if( hit.index != -1 )
-			{
-				vec3 pos = r.o + r.d * hit.distance;
-				vec3 nrm = nScene( pos );
-
-				vec3 Cd = vec3(0);
-
-				// based upon the index of the object hit,
-				// set material properties (for now only diffuse color Cd)
-				if( hit.index == 1 )
-				{
-					// the plane shall have a checkerboard pattern
-					float f = mod( floor(2.0*pos.z) + floor(2.0*pos.x), 2.0);
-
-					Cd = vec3( 0.8 + 0.1*f*vec3(1.0) );
-				}
-				else if( hit.index == 2 )
-				{
-					// thist sphere shall be red
-					Cd = vec3( 1.0, 0.0, 0.0 );
-				}
-				else if( hit.index == 3 )
-				{
-					// thist sphere shall be blue
-					Cd = vec3( 0.0, 0.0, 1.0 );
-				}
-
-				else if( hit.index == 4 )
-				{
-					// thist sphere shall be green
-					Cd = vec3( 0.0, 1.0, 0.0 );
-				}
-				else if( hit.index == 5 )
-				{
-					// Daelyn: this sphere shall be a turquoise
-					Cd = vec3( .251, .8784, .8157 );
-				}
-				else if( hit.index == 6 )
-				{
-					// Daelyn: this sphere shall be neon pink
-					Cd = vec3( 1.0, .0784, .5765 );
-				}
-				else if( hit.index == 7 )
-				{
-					// Daelyn: Cube shall be purple
-					Cd = vec3( .749, .251, .749 );
-				}
-
-				// add light to overall color
-				finalColor += Cd;
-			}
-
-			// output pixel color
-			gl_FragColor = vec4( finalColor, 1.0 );
+		// Daelyn: calculating phong lighting
+		vec3 calculatePhongLighting(vec3 pos, vec3 norm, vec3 viewDir, Light light, Material mat) {
+			vec3 lightDir = normalize(light.position - pos);
+			vec3 reflectDir = reflect(-lightDir, norm);
+			
+			// Ambient
+			vec3 ambient = light.ambientIntensity * mat.ambientColor * light.color;
+			
+			// Diffuse 
+			float diff = max(dot(norm, lightDir), 0.0);
+			vec3 diffuse = diff * light.diffuseIntensity * mat.diffuseColor * light.color;
+			
+			// Specular
+			float spec = pow(max(dot(viewDir, reflectDir), 0.0), mat.shininess);
+			vec3 specular = spec * light.specularIntensity * mat.specularColor * light.color;
+			
+			return ambient + diffuse + specular;
 		}
+		
+		// main raytracing loop, automatically called for each viewport pixel
+		void main(void) {
+			Ray r = getRayForCurrentPixel();
+			vec3 viewDir = normalize(-r.d);
+			vec3 finalColor = vec3(0,0,0);
+			Dist hit = raymarch(r);
+		
+			if (hit.index != -1) {
+				vec3 pos = r.o + r.d * hit.distance;
+				vec3 nrm = nScene(pos);
+				
+				Material mat;
+				if (hit.index == 1) {
+					mat = Material(vec3(0.1), vec3(0.8), vec3(1.0), 32.0); // Example material
+				}
+				// other objects
+				
+				Light sun = Light(vec3(10, 10, 10), vec3(1, 1, 1), 0.1, 0.9, 0.5); // Example sun light
+		
+				finalColor = calculatePhongLighting(pos, nrm, viewDir, sun, mat);
+			}
+		
+			gl_FragColor = vec4(finalColor, 1.0);
+		}
+		
+		
 	</script>
 
 	<script type="text/javascript">
