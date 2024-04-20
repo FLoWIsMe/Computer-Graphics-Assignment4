@@ -163,8 +163,8 @@
 			float distance;
 		};
 
-		// helper function to find if a new object is closer along a ray than the
-		// previous one; return the closer object index
+		// Daelyn: helper function to find if a new object is closer along a ray than the
+		// Daelyn: previous one; return the closer object index
 		Dist closer( Dist current, int index, float t )
 		{
 			if( t <= current.distance )
@@ -201,8 +201,8 @@
 		}
 
 
-		// use dScene and finite differences to estimate the normal of the object
-		// at position x
+		// Daelyn: use dScene and finite differences to estimate the normal of the object
+		// Daelyn: at position x
 		vec3 nScene( in vec3 x )
 		{
 			vec3 n;
@@ -225,33 +225,33 @@
 
 		struct Ray
 		{
-			vec3 o; // origin
-			vec3 d; // direction (normalized)
+			vec3 o; // Daelyn: origin
+			vec3 d; // Daelyn: direction (normalized)
 		};
 
-		// march along a ray using the distance field, until an object is approached
-		// very closely (ro: ray origin, rd: ray direction)
-		// returns index -1 if no hit is discovered
+		// Daelyn: march along a ray using the distance field, until an object is approached
+		// Daelyn: very closely (ro: ray origin, rd: ray direction)
+		// Daelyn: returns index -1 if no hit is discovered
 		Dist raymarch( Ray r )
 		{
 			float t = 0.0;
 
 			for(int j = 0; j < MAX_MARCHING_STEPS; j++)
 			{
-				// calculate the current position on the ray
+				// Daelyn: calculate the current position on the ray
 				vec3 pos = r.o + r.d * t;
 
-				// get the distance and index of the object closest to position
+				// Daelyn: get the distance and index of the object closest to position
 				Dist result = dScene(pos);
 
-				// if the distance is under the threshold, return the RayHit
+				// Daelyn: if the distance is under the threshold, return the RayHit
 				if( result.distance < uSettings.epsilon )
 				{
 					result.distance += t;
 					return result;
 				}
 
-				// add the current distance to the raymarch step length
+				// Daelyn: add the current distance to the raymarch step length
 				t += result.distance;
 			}
 
@@ -260,14 +260,14 @@
 
 		// -------------------------------------------------------------------------
 
-		// helper function to obtain the ray direction of the ray going through
-		// the pixel this shader instance is called for
+		// Daelyn: helper function to obtain the ray direction of the ray going through
+		// Daelyn: the pixel this shader instance is called for
 		Ray getRayForCurrentPixel()
 		{
-			// compute normalized viewport coordinates
+			// Daelyn: compute normalized viewport coordinates
 			vec2 pixelCoord = -1.0 + 2.0*(gl_FragCoord.xy / uSettings.resolution);
 
-			// set ray direction
+			// Daelyn: set ray direction
 			return Ray( uCamera.eye, normalize( uCamera.forward * uCamera.focalLength +
 												uCamera.right * pixelCoord.x * uCamera.aspectRatio +
 												uCamera.up * pixelCoord.y) );
@@ -278,34 +278,50 @@
 			vec3 lightDir = normalize(light.position - pos);
 			vec3 reflectDir = reflect(-lightDir, norm);
 			
-			// Ambient
+			// Daelyn: Ambient
 			vec3 ambient = light.ambientIntensity * mat.ambientColor * light.color;
 			
-			// Diffuse 
+			// Daelyn: Diffuse 
 			float diff = max(dot(norm, lightDir), 0.0);
 			vec3 diffuse = diff * light.diffuseIntensity * mat.diffuseColor * light.color;
 			
-			// Specular
+			// Daelyn: Specular
 			float spec = pow(max(dot(viewDir, reflectDir), 0.0), mat.shininess);
 			vec3 specular = spec * light.specularIntensity * mat.specularColor * light.color;
 			
 			return ambient + diffuse + specular;
 		}
 		
-		// main raytracing loop, automatically called for each viewport pixel
+		// Daelyn: Shadow computation - returns 1 if in shadow, 0 if fully lit
+		float shadow(vec3 p, vec3 lightPos) {
+			vec3 toLight = lightPos - p;
+			float distanceToLight = length(toLight);
+			toLight /= distanceToLight; // Daelyn: Normalize the direction
+
+			Ray shadowRay = Ray(p + uSettings.epsilon * toLight, toLight);
+			Dist shadowHit = raymarch(shadowRay);
+
+			// Daelyn: Check if the hit point is closer than the light source
+			if(shadowHit.distance < distanceToLight && shadowHit.index != -1) {
+				return 1.0; // Daelyn: In shadow
+			}
+			return 0.0; // Daelyn: Not in shadow
+		}
+
+		// Daelyn: main raytracing loop, automatically called for each viewport pixel
 		void main(void) {
-			setupMaterials(); // Initialize materials
+			setupMaterials(); // Daelyn: Initialize materials
 			Ray r = getRayForCurrentPixel();
 			vec3 viewDir = normalize(-r.d);
 			vec3 finalColor = vec3(0,0,0);
 			Dist hit = raymarch(r);
-		
+
 			if (hit.index != -1) {
 				vec3 pos = r.o + r.d * hit.distance;
 				vec3 nrm = nScene(pos);
 				Material mat;
-		
-				// Replace switch with if-else
+
+				// Explicitly handle each case
 				if (hit.index == 1) {
 					mat = materials[1];
 				} else if (hit.index == 2) {
@@ -323,13 +339,26 @@
 				} else {
 					mat = materials[0]; // Default material
 				}
-		
+
+				// Light setup
 				Light sun = Light(vec3(10, 10, 10), vec3(1, 1, 1), 0.1, 0.9, 0.5);
-				finalColor = calculatePhongLighting(pos, nrm, viewDir, sun, mat);
+
+				// Compute shadow status
+				float inShadow = shadow(pos, sun.position);
+				vec3 lightEffect = calculatePhongLighting(pos, nrm, viewDir, sun, mat);
+
+				// Apply shadow effect
+				if (inShadow > 0.0) {
+					finalColor = vec3(0); // Darkened due to shadow
+				} else {
+					finalColor = lightEffect; // Fully lit by the light source
+				}
 			}
-		
+
 			gl_FragColor = vec4(finalColor, 1.0);
 		}
+
+
 		
 				
 		
