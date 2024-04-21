@@ -90,35 +90,37 @@
 			vec3 diffuseColor;
 			vec3 specularColor;
 			float shininess;
+			float reflection; // Daelyn: Reflectivity coefficient, ranges from 0 (no reflection) to 1 (full mirror)
 		};
+		
 		
 		// Daelyn: Defining materials
 		Material materials[8]; // Assuming 7 objects + 1 for general setup
 
 		void setupMaterials() {
 			// Daelyn: General material setup
-			materials[0] = Material(vec3(0.1), vec3(0.2), vec3(0.5), 25.0); // Default for objects without specific material
+			materials[0] = Material(vec3(0.1), vec3(0.2), vec3(0.5), 25.0, 0.0); // Daelyn: Default for objects without specific material
 			
 			// Daelyn: Plane - somewhat metallic gray
-			materials[1] = Material(vec3(0.05, 0.05, 0.05), vec3(0.5, 0.5, 0.5), vec3(0.7, 0.7, 0.7), 10.0);
+			materials[1] = Material(vec3(0.05, 0.05, 0.05), vec3(0.5, 0.5, 0.5), vec3(0.7, 0.7, 0.7), 10.0, 0.0);
 			
 			// Daelyn: First sphere - metallic red
-			materials[2] = Material(vec3(0.1, 0, 0), vec3(1.0, 0.0, 0.0), vec3(0.5, 0.2, 0.2), 30.0);
+			materials[2] = Material(vec3(0.1, 0, 0), vec3(1.0, 0.0, 0.0), vec3(0.5, 0.2, 0.2), 30.0, 0.0);
 			
-			// Daelyn: Second sphere - metallic blue
-			materials[3] = Material(vec3(0, 0, 0.1), vec3(0.0, 0.0, 1.0), vec3(0.2, 0.2, 0.5), 30.0);
+			// Daelyn: Second sphere - metallic blue with reflection
+			materials[3] = Material(vec3(0, 0, 0.1), vec3(0.0, 0.0, 1.0), vec3(0.2, 0.2, 0.5), 30.0, 0.8);
 			
 			// Daelyn: Third sphere - metallic green
-			materials[4] = Material(vec3(0, 0.1, 0), vec3(0.0, 1.0, 0.0), vec3(0.2, 0.5, 0.2), 30.0);
+			materials[4] = Material(vec3(0, 0.1, 0), vec3(0.0, 1.0, 0.0), vec3(0.2, 0.5, 0.2), 30.0, 0.0);
 			
 			// Daelyn: Fourth sphere - metallic turquoise
-			materials[5] = Material(vec3(0.251, 0.8784, 0.8157) * 0.1, vec3(0.251, 0.8784, 0.8157), vec3(0.251, 0.8784, 0.8157) * 0.5, 25.0);
+			materials[5] = Material(vec3(0.251, 0.8784, 0.8157) * 0.1, vec3(0.251, 0.8784, 0.8157), vec3(0.251, 0.8784, 0.8157) * 0.5, 25.0, 0.0);
 			
 			// Daelyn: Fifth sphere - metallic neon pink
-			materials[6] = Material(vec3(1.0, 0.0784, 0.5765) * 0.1, vec3(1.0, 0.0784, 0.5765), vec3(1.0, 0.0784, 0.5765) * 0.5, 25.0);
+			materials[6] = Material(vec3(1.0, 0.0784, 0.5765) * 0.1, vec3(1.0, 0.0784, 0.5765), vec3(1.0, 0.0784, 0.5765) * 0.5, 25.0, 0.0);
 			
 			// Daelyn: Cube - metallic purple
-			materials[7] = Material(vec3(0.749, 0.251, 0.749) * 0.1, vec3(0.749, 0.251, 0.749), vec3(0.749, 0.251, 0.749) * 0.5, 30.0);
+			materials[7] = Material(vec3(0.749, 0.251, 0.749) * 0.1, vec3(0.749, 0.251, 0.749), vec3(0.749, 0.251, 0.749) * 0.5, 30.0, 0.0);
 
 			
 		}
@@ -221,6 +223,7 @@
 			return n;
 		}
 
+
 		// -------------------------------------------------------------------------
 
 		struct Ray
@@ -232,31 +235,55 @@
 		// Daelyn: march along a ray using the distance field, until an object is approached
 		// Daelyn: very closely (ro: ray origin, rd: ray direction)
 		// Daelyn: returns index -1 if no hit is discovered
-		Dist raymarch( Ray r )
-		{
-			float t = 0.0;
-
-			for(int j = 0; j < MAX_MARCHING_STEPS; j++)
-			{
-				// Daelyn: calculate the current position on the ray
-				vec3 pos = r.o + r.d * t;
-
-				// Daelyn: get the distance and index of the object closest to position
+		// Daelyn: recursive raymarching to account for reflections
+		Dist raymarch(Ray r) {
+			const int maxDepth = 1000; // Max recursion depth for reflections, change this as needed for performance
+			float totalDistance = 0.0;
+		
+			for (int depth = 0; depth < maxDepth; depth++) {
+				vec3 pos = r.o + r.d * totalDistance;
 				Dist result = dScene(pos);
-
-				// Daelyn: if the distance is under the threshold, return the RayHit
-				if( result.distance < uSettings.epsilon )
-				{
-					result.distance += t;
-					return result;
+		
+				if (result.distance < uSettings.epsilon) {
+					vec3 n = nScene(pos);
+					
+					// Daelyn: Manually handle reflection for each material
+					if (result.index == 1 && materials[1].reflection > 0.0) {
+						r.d = reflect(r.d, n);
+					} else if (result.index == 2 && materials[2].reflection > 0.0) {
+						r.d = reflect(r.d, n);
+					} else if (result.index == 3 && materials[3].reflection > 0.0) {
+						r.d = reflect(r.d, n);
+					} else if (result.index == 4 && materials[4].reflection > 0.0) {
+						r.d = reflect(r.d, n);
+					} else if (result.index == 5 && materials[5].reflection > 0.0) {
+						r.d = reflect(r.d, n);
+					} else if (result.index == 6 && materials[6].reflection > 0.0) {
+						r.d = reflect(r.d, n);
+					} else if (result.index == 7 && materials[7].reflection > 0.0) {
+						r.d = reflect(r.d, n);
+					} else {
+						// If not reflective, or reflections are not to be processed further, finalize raymarch
+						totalDistance += result.distance;
+						result.distance = totalDistance; // Update the total distance to the hit
+						return result;
+					}
+					
+					r.o = pos + r.d * uSettings.epsilon;
+					totalDistance += result.distance; // Increment total distance by the distance to hit
+					continue; // Continue with the next iteration for the reflected ray
 				}
-
-				// Daelyn: add the current distance to the raymarch step length
-				t += result.distance;
+				
+				totalDistance += result.distance; // Increment total distance traveled by the ray
 			}
-
-			return Dist( -1, INFINITY );
+		
+			return Dist(-1, INFINITY); // Return no intersection if max depth exceeded without a hit
 		}
+		
+		
+		
+		
+
 
 		// -------------------------------------------------------------------------
 
@@ -310,17 +337,17 @@
 
 		// Daelyn: main raytracing loop, automatically called for each viewport pixel
 		void main(void) {
-			setupMaterials(); // Daelyn: Initialize materials
+			setupMaterials(); // Initialize materials
 			Ray r = getRayForCurrentPixel();
 			vec3 viewDir = normalize(-r.d);
 			vec3 finalColor = vec3(0,0,0);
-			Dist hit = raymarch(r);
-
+			Dist hit = raymarch(r); // Initial depth is 0
+		
 			if (hit.index != -1) {
 				vec3 pos = r.o + r.d * hit.distance;
 				vec3 nrm = nScene(pos);
 				Material mat;
-
+		
 				// Explicitly handle each case
 				if (hit.index == 1) {
 					mat = materials[1];
@@ -339,14 +366,14 @@
 				} else {
 					mat = materials[0]; // Default material
 				}
-
+		
 				// Light setup
 				Light sun = Light(vec3(10, 10, 10), vec3(1, 1, 1), 0.1, 0.9, 0.5);
-
+		
 				// Compute shadow status
 				float inShadow = shadow(pos, sun.position);
 				vec3 lightEffect = calculatePhongLighting(pos, nrm, viewDir, sun, mat);
-
+		
 				// Apply shadow effect
 				if (inShadow > 0.0) {
 					finalColor = vec3(0); // Darkened due to shadow
@@ -354,15 +381,18 @@
 					finalColor = lightEffect; // Fully lit by the light source
 				}
 			}
-
+		
 			gl_FragColor = vec4(finalColor, 1.0);
 		}
+		
+		
+		
 
+		
+		
+		
 
-		
-				
-		
-		
+			
 	</script>
 
 	<script type="text/javascript">
